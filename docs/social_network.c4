@@ -1,0 +1,110 @@
+specification {
+  element actor {
+    style {
+      shape person
+      color secondary
+    }
+  }
+  element system {
+    style {
+      background #1168bd
+      color white
+    }
+  }
+  element container {
+    style {
+      background #438dd5
+      color black
+    }
+  }
+  element containerDb {
+    style {
+      shape cylinder
+      background #85bbf0
+      color black
+    }
+  }
+  element systemExt {
+    style {
+      dashed true
+      background #cccccc
+      color black
+    }
+  }
+}
+
+model {
+  user = actor 'Пользователь' {
+    description 'Обычный пользователь социальной сети'
+  }
+
+  ui = systemExt 'UI (Web/Mobile)' {
+    description 'Внешний интерфейс, через который пользователь взаимодействует'
+  }
+
+  messageBroker = systemExt 'Message Broker' {
+    description 'Kafka/RabbitMQ для асинхронной передачи событий (лайков, просмотров, комментариев)'
+  }
+
+  socialNetwork = system 'Social Network' {
+    description 'Основное приложение социальной сети, содержащее несколько сервисов'
+
+    api = container 'API/Gateway Service' {
+      description 'Принимает все запросы от UI, маршрутизирует их в нужные сервисы'
+    }
+    userService = container 'Users Service' {
+      description 'Регистрация, аутентификация, хранение пользователей и их ролей'
+    }
+    postsService = container 'Posts/Comments Service' {
+      description 'CRUD для постов, промокодов и комментариев'
+    }
+    statsService = container 'Statistics Service' {
+      description 'Подсчитывает лайки, просмотры, комментарии и предоставляет агрегированную статистику'
+    }
+
+    usersDb = containerDb 'Users DB' {
+      description 'PostgreSQL. Хранит данные о пользователях'
+    }
+    postsDb = containerDb 'Posts DB' {
+      description 'Postgres или Cassandra. Хранит посты, промокоды и комментарии'
+    }
+    statsDb = containerDb 'Stats DB' {
+      description 'ClickHouse. Хранит агрегированные данные (лайки, просмотры и т.д.)'
+    }
+  }
+
+  user -> ui 'Использует (ввод/просмотр)'
+  ui -> socialNetwork.api 'Отправляет запросы (REST)'
+
+  socialNetwork.api -> socialNetwork.userService 'Регистрация / Авторизация (REST)'
+  socialNetwork.userService -> socialNetwork.usersDb 'CRUD пользователей (SQL)'
+
+  socialNetwork.api -> socialNetwork.postsService 'CRUD постов и комментариев (REST)'
+  socialNetwork.postsService -> socialNetwork.postsDb 'Чтение/запись постов и комментариев (SQL / CQL)'
+
+  socialNetwork.postsService -> messageBroker 'Отправляет события (async)'
+  messageBroker -> socialNetwork.statsService 'Доставляет события (async)'
+  socialNetwork.statsService -> socialNetwork.statsDb 'Читает/записывает статистику (SQL)'
+
+  socialNetwork.api -> socialNetwork.statsService 'Запрашивает статистику (REST)'
+}
+
+views {
+  view contextView {
+    title 'Context Diagram'
+    include user
+    include ui
+    include messageBroker
+    include socialNetwork
+    layout lr
+  }
+
+  view containerView {
+    title 'Container Diagram'
+    include user
+    include ui
+    include messageBroker
+    include socialNetwork
+    layout lr
+  }
+}
